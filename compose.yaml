@@ -1,0 +1,47 @@
+services:
+  api:
+    build:
+      context: ./backend
+    environment:
+      DEFAULT_GEMINI_MODEL: ${DEFAULT_GEMINI_MODEL:-gemini-2.5-flash-lite}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in .env}
+      GEMINI_CONCURRENCY_LIMIT: ${GEMINI_CONCURRENCY_LIMIT:-2}
+      GEMINI_MODELS: ${GEMINI_MODELS:-gemini-2.5-flash-lite}
+      MAX_CONTENT_LENGTH: ${MAX_CONTENT_LENGTH:-20000}
+      MAX_QUIZ_QUESTIONS: ${MAX_QUIZ_QUESTIONS:-10}
+      MODEL_REQUEST_TIMEOUT: ${MODEL_REQUEST_TIMEOUT:-30s}
+      RATE_LIMIT_REQUESTS_PER_MINUTE: ${RATE_LIMIT_REQUESTS_PER_MINUTE:-10}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/api/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    ports:
+      - "8080:8080"
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp

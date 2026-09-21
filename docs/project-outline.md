@@ -26,7 +26,7 @@ The primary user is a developer studying technical documentation or notes.
 ## User flow
 
 1. The user pastes plain text into the content field.
-2. The application loads the deployment's available model IDs and default model from the API. The user selects a model below the content field.
+2. The application loads the deployment's available model Ids and default model from the API. The user selects a model below the content field.
 3. The user may generate a summary. Summary generation is optional and quiz generation does not depend on it.
 4. The user selects a target question count and generates a quiz directly from the source text.
 5. The model returns no more than the requested number of meaningful questions. It may return fewer questions rather than padding the quiz with repetitions. The interface reports the actual count before the user starts.
@@ -220,7 +220,7 @@ The documented error mapping includes `400`, `413`, `429`, `502`, and `504`. Sta
 
 ### Operational endpoint
 
-`GET /healthz` reports whether the Go process is ready to serve HTTP. It does not call Gemini or test the API key.
+`GET /api/healthz` reports whether the Go process is ready to serve HTTP. It does not call Gemini or test the API key.
 
 ## Gemini model catalog
 
@@ -231,11 +231,11 @@ GEMINI_MODELS=gemini-2.5-flash-lite,gemini-3.1-flash-lite,gemini-3.5-flash-lite,
 DEFAULT_GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-The Go process trims entries, rejects empty items and duplicates, and fails at startup unless `DEFAULT_GEMINI_MODEL` belongs to `GEMINI_MODELS`. Incoming model IDs must match an entry exactly; arbitrary model passthrough is forbidden.
+The Go process trims entries, rejects empty items and duplicates, and fails at startup unless `DEFAULT_GEMINI_MODEL` belongs to `GEMINI_MODELS`. Incoming model Ids must match an entry exactly; arbitrary model passthrough is forbidden.
 
 Operators may add or remove models without rebuilding the frontend. Every configured model must support structured JSON output and `thinking_level=low`. Startup validates configuration locally; an incompatible configured model fails safely at generation time with `MODEL_UNSUPPORTED`.
 
-The API sends `thinking_level=low` for every generation request and uses provider defaults for `temperature`, `top_p`, and `top_k`. The UI displays configured API IDs exactly.
+The API sends `thinking_level=low` for every generation request and uses provider defaults for `temperature`, `top_p`, and `top_k`. The UI displays configured API Ids exactly.
 
 ## Structured generation and validation
 
@@ -430,6 +430,13 @@ The demo is a short GIF showing content entry, model selection, quiz generation,
 3. Implement all-at-once quiz answering, deterministic scoring, evidence display, and accessibility states.
 4. Add React unit/component tests and mocked Playwright flows.
 
+Persistence implementation must include the following before connecting storage to the UI:
+
+- Add a pure score calculation function shared by quiz completion and restoration. Compare persisted score data with the score recomputed from questions and selected answers; treat a mismatch as invalid state under the existing reset-and-notify policy.
+- Distinguish unavailable storage from malformed records. Handle failures from `getItem`, `setItem`, and `removeItem`, and define explicit read/write results so the UI can explain a failed restore, save, or cleanup without claiming success.
+- Provide `createWorkspaceStore(storage)` from the workspace module and bind the browser storage dependency once at application startup. Handle failure to obtain browser storage at that boundary as well.
+- Test score mismatches and storage read, quota/write, and cleanup failures with deterministic storage doubles. Keep these behaviors in Phase 2; the Phase 1 workspace schema is not evidence of integrated persistence.
+
 ### Phase 3 — Go and Gemini integration
 
 1. Implement model-catalog, summary, quiz, and health endpoints.
@@ -442,6 +449,7 @@ The demo is a short GIF showing content entry, model selection, quiz generation,
 1. Add the original evaluation dataset, automated measurements, and human rubric.
 2. Verify configured models with manual eval runs.
 3. Complete keyboard, screen-reader-semantic, responsive, privacy, and log-redaction checks.
+   Include Nginx error logs under upstream failures and malformed requests, and arbitrary URI paths in access logs. The access-log field allowlist alone does not establish privacy for every log channel.
 4. Verify Docker startup, healthchecks, non-root execution, and clean Linux installation.
 
 ### Phase 5 — Open-source release

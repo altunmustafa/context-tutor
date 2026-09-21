@@ -1,0 +1,4 @@
+{
+  "summary": ["A mutex protects state accessed by concurrent work."],
+  "model": "gemini-2.5-flash-lite"
+}

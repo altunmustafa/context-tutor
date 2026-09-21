@@ -1,0 +1,4 @@
+{
+  "content": "A mutex protects shared state from concurrent access.",
+  "model": "gemini-2.5-flash-lite"
+}
