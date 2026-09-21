@@ -1,0 +1,13 @@
+{
+  "questions": [
+    {
+      "question": "What protects shared state from concurrent access?",
+      "options": ["A mutex", "A formatter", "A router", "A compiler"],
+      "correctOptionIndex": 0,
+      "sourceQuote": "A mutex protects shared state from concurrent access."
+    }
+  ],
+  "requestedQuestionCount": 3,
+  "actualQuestionCount": 1,
+  "model": "gemini-2.5-flash-lite"
+}

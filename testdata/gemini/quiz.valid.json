@@ -1,0 +1,10 @@
+{
+  "questions": [
+    {
+      "question": "What protects shared state from concurrent access?",
+      "options": ["A mutex", "A formatter", "A router", "A compiler"],
+      "correctOptionIndex": 0,
+      "sourceQuote": "A mutex protects shared state from concurrent access."
+    }
+  ]
+}

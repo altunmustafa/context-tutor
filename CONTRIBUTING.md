@@ -58,15 +58,22 @@ Use the frontend `package.json`, backend Go tooling, and root `Makefile` as the 
 make verify
 ```
 
-The Make target invokes pnpm for frontend formatting, linting, type checking, tests, and the production build. It invokes Go tooling directly for backend formatting, static checks, and tests, then runs the mocked end-to-end and Docker build checks.
+The Make target invokes pnpm for frontend formatting, linting, type checking, tests, and the production build. It invokes Go tooling directly for backend formatting, static checks, and tests.
 
-Run live evaluations only when the change affects LLM behavior:
+Check Docker image builds separately, with the environment configured as described above:
 
 ```bash
-make eval
+make docker-build
 ```
 
-Use `make eval-all` only when comparison across every configured model is relevant. These commands make real API calls and may incur charges.
+Start the Compose application, wait for its healthchecks, and stop it when finished:
+
+```bash
+make docker-up
+make docker-down
+```
+
+The implementation plan in `docs/project-outline.md` tracks the end-to-end tests and live evaluations planned for later phases.
 
 Report only checks you actually ran. If verification fails, fix the cause or clearly document the unresolved failure before requesting review.
 

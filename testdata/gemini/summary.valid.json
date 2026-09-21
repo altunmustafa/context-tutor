@@ -1,0 +1,3 @@
+{
+  "summary": ["A mutex protects state accessed by concurrent work."]
+}
