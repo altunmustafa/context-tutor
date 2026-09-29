@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: ./backend
+      target: development
+    init: true
+    read_only: false
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./backend:/src
+      - /src/.tmp
+
+  web:
+    build:
+      context: ./frontend
+      target: development
+    command:
+      - sh
+      - -c
+      - pnpm install --frozen-lockfile && exec pnpm dev --host 0.0.0.0 --port 8080 --strictPort
+    environment:
+      CONTEXT_TUTOR_API_PROXY_TARGET: http://api:8080
+    read_only: false
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  frontend_node_modules:

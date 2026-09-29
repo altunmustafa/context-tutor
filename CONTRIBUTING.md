@@ -22,6 +22,27 @@ Copy `.env.example` to `.env` only when running the application or live LLM eval
 
 Read [`docs/project-outline.md`](docs/project-outline.md) before changing product scope or public behavior. Read component, API, and security documentation when the files referenced by the outline are present.
 
+## Run the development application
+
+Copy `.env.example` to `.env` and set the required API configuration, then start the development Compose stack:
+
+```bash
+make dev
+```
+
+Open `http://localhost:8080`. The development override bind-mounts the frontend and backend source directories into their containers. Vite updates saved React, TypeScript, and CSS changes in the browser. Air rebuilds and restarts the Go API after saved Go changes. Air writes build output to an anonymous container volume, so reload artifacts do not enter the working tree or need a stable cache identity.
+
+Frontend dependencies live in a named Docker volume instead of the bind mount. The stable volume name lets Compose reuse the dependency cache across container recreation and makes its lifecycle explicit. If `package.json` or the lockfile changes, restart with `make dev`; startup synchronizes the volume with the lockfile before Vite runs. Rebuild the development images with `make dev` after changing either Dockerfile or the Air configuration.
+
+Follow the frontend logs or stop the stack with:
+
+```bash
+make dev-logs
+make dev-down
+```
+
+The default `compose.yaml` remains the production-like path: it builds immutable frontend assets and serves them through Nginx. Use the development override only for local editing.
+
 ## Create a focused branch
 
 Start from the canonical repository's default branch and create a short-lived branch:
@@ -58,7 +79,15 @@ Use the frontend `package.json`, backend Go tooling, and root `Makefile` as the 
 make verify
 ```
 
-The Make target invokes pnpm for frontend formatting, linting, type checking, tests, and the production build. It invokes Go tooling directly for backend formatting, static checks, and tests.
+Before the first browser test run, install the Chromium build required by the locked Playwright dependency:
+
+```bash
+pnpm --dir frontend exec playwright install chromium
+```
+
+The Make target invokes pnpm for frontend formatting, linting, type checking, unit/component tests, and the production build. It invokes Go tooling directly for backend formatting, static checks, and tests, then runs mocked Playwright flows. Browser tests build the frontend and start their own Vite preview server; keep the port declared in `frontend/playwright.config.ts` free. Linux hosts also need Playwright's documented browser system dependencies.
+
+Run only the browser flows with `make frontend-e2e`. Tests cover desktop and mobile Chromium. They intercept the API and require no backend or API key. To test an already running deployment instead, set `PLAYWRIGHT_BASE_URL` to its origin; Playwright then skips its managed server. See [the browser workflow](docs/browser-workflow.md) for implemented behavior and its limits.
 
 Check Docker image builds separately, with the environment configured as described above:
 
@@ -73,7 +102,7 @@ make docker-up
 make docker-down
 ```
 
-The implementation plan in `docs/project-outline.md` tracks the end-to-end tests and live evaluations planned for later phases.
+The implementation plan in `docs/project-outline.md` tracks backend integration and live evaluations planned for later phases.
 
 Report only checks you actually ran. If verification fails, fix the cause or clearly document the unresolved failure before requesting review.
 

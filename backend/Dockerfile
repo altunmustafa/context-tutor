@@ -1,8 +1,20 @@
-FROM golang:1.27.0-alpine3.24 AS build
+FROM golang:1.27.0-alpine3.24 AS base
 
 WORKDIR /src
 COPY go.mod ./
 RUN go mod download
+
+FROM base AS development
+
+RUN go install github.com/air-verse/air@v1.67.3
+COPY .air.toml ./
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]
+
+FROM base AS build
+
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/context-tutor-api ./cmd/api
 

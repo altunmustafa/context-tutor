@@ -433,9 +433,9 @@ The demo is a short GIF showing content entry, model selection, quiz generation,
 Persistence implementation must include the following before connecting storage to the UI:
 
 - Add a pure score calculation function shared by quiz completion and restoration. Compare persisted score data with the score recomputed from questions and selected answers; treat a mismatch as invalid state under the existing reset-and-notify policy.
-- Distinguish unavailable storage from malformed records. Handle failures from `getItem`, `setItem`, and `removeItem`, and define explicit read/write results so the UI can explain a failed restore, save, or cleanup without claiming success.
-- Provide `createWorkspaceStore(storage)` from the workspace module and bind the browser storage dependency once at application startup. Handle failure to obtain browser storage at that boundary as well.
-- Test score mismatches and storage read, quota/write, and cleanup failures with deterministic storage doubles. Keep these behaviors in Phase 2; the Phase 1 workspace schema is not evidence of integrated persistence.
+- Distinguish unavailable storage from malformed records. Handle failures from `getItem`, `setItem`, and `removeItem`, and define explicit load/save results so the UI can explain a failed restore, save, or removal without claiming success.
+- Provide `WorkspaceRepository`, inject its native `Storage` dependency once at application startup, and handle failure to obtain browser storage at that boundary as well.
+- Test score mismatches and storage load, quota/save, and removal failures with deterministic storage doubles. Keep these behaviors in Phase 2; the Phase 1 workspace schema is not evidence of integrated persistence.
 
 ### Phase 3 — Go and Gemini integration
 
