@@ -19,7 +19,6 @@ services:
       retries: 5
       start_period: 5s
     read_only: true
-    restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     tmpfs:
@@ -40,7 +39,6 @@ services:
     ports:
       - "8080:8080"
     read_only: true
-    restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     tmpfs:

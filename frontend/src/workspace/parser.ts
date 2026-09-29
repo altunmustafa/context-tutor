@@ -1,79 +1,37 @@
 import type { QuizQuestion } from "../api/contracts";
+import { isRecord } from "../utils/isRecord";
+import { calculateScore } from "./score";
+import { sourceHash } from "./sourceHash";
+import {
+  WORKSPACE_SCHEMA_VERSION,
+  type CompletionState,
+  type QuizArtifact,
+  type ScoreData,
+  type SummaryArtifact,
+  type WorkspaceV1,
+} from "./model";
 
-export const WORKSPACE_STORAGE_KEY = "context-tutor.workspace.v1";
-export const WORKSPACE_SCHEMA_VERSION = 1 as const;
-
-export interface SummaryArtifact {
-  points: string[];
-  sourceHash: string;
-  model: string;
-}
-
-export interface QuizArtifact {
-  questions: QuizQuestion[];
-  sourceHash: string;
-  requestedQuestionCount: number;
-  actualQuestionCount: number;
-  model: string;
-}
-
-export interface ScoreData {
-  correct: number;
-  incorrect: number;
-  unanswered: number;
-  total: number;
-}
-
-export interface CompletionState {
-  completedAt: string;
-  score: ScoreData;
-}
-
-export interface WorkspaceV1 {
-  version: typeof WORKSPACE_SCHEMA_VERSION;
-  source: {
-    content: string;
-    hash: string;
-  };
-  selectedModel: string | null;
-  summary: SummaryArtifact | null;
-  questionCountDraft: number;
-  quiz: QuizArtifact | null;
-  selectedAnswers: (number | null)[];
-  completion: CompletionState | null;
-}
-
-export type WorkspaceReadResult =
-  | { status: "empty" }
-  | { status: "invalid" }
-  | { status: "restored"; workspace: WorkspaceV1 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function nonempty(value: unknown, max = 20_000): value is string {
+  return typeof value === "string" && value.trim().length > 0 && Array.from(value).length <= max;
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string")
-  );
+  return Array.isArray(value) && value.every((item) => nonempty(item, 300));
 }
 
 function isQuizQuestion(value: unknown): value is QuizQuestion {
-  if (
-    !isRecord(value) ||
-    !Array.isArray(value.options) ||
-    value.options.length !== 4
-  ) {
+  if (!isRecord(value) || !Array.isArray(value.options) || value.options.length !== 4) {
     return false;
   }
 
   return (
-    typeof value.question === "string" &&
-    value.options.every((option) => typeof option === "string") &&
+    nonempty(value.question) &&
+    value.options.every((option) => nonempty(option)) &&
+    new Set(value.options.map((option) => String(option).trim().toLowerCase())).size === 4 &&
     Number.isInteger(value.correctOptionIndex) &&
     Number(value.correctOptionIndex) >= 0 &&
     Number(value.correctOptionIndex) <= 3 &&
-    typeof value.sourceQuote === "string"
+    nonempty(value.sourceQuote, 300)
   );
 }
 
@@ -101,20 +59,17 @@ function isQuiz(value: unknown): value is QuizArtifact | null {
       Number(value.requestedQuestionCount) <= 10 &&
       Number.isInteger(value.actualQuestionCount) &&
       value.actualQuestionCount === value.questions.length &&
-      Number(value.actualQuestionCount) <=
-        Number(value.requestedQuestionCount) &&
+      Number(value.actualQuestionCount) <= Number(value.requestedQuestionCount) &&
       typeof value.model === "string")
   );
 }
 
 function isCompletion(value: unknown): value is CompletionState | null {
-  if (value === null) {
-    return true;
-  }
-
+  if (value === null) return true;
   if (
     !isRecord(value) ||
     typeof value.completedAt !== "string" ||
+    !Number.isFinite(Date.parse(value.completedAt)) ||
     !isRecord(value.score)
   ) {
     return false;
@@ -127,19 +82,13 @@ function isCompletion(value: unknown): value is CompletionState | null {
 
   return (
     valuesAreCounts &&
-    Number(score.correct) +
-      Number(score.incorrect) +
-      Number(score.unanswered) ===
+    Number(score.correct) + Number(score.incorrect) + Number(score.unanswered) ===
       Number(score.total)
   );
 }
 
 export function parseWorkspace(value: unknown): WorkspaceV1 | null {
-  if (
-    !isRecord(value) ||
-    value.version !== WORKSPACE_SCHEMA_VERSION ||
-    !isRecord(value.source)
-  ) {
+  if (!isRecord(value) || value.version !== WORKSPACE_SCHEMA_VERSION || !isRecord(value.source)) {
     return null;
   }
 
@@ -147,18 +96,13 @@ export function parseWorkspace(value: unknown): WorkspaceV1 | null {
     Array.isArray(value.selectedAnswers) &&
     value.selectedAnswers.every(
       (answer) =>
-        answer === null ||
-        (Number.isInteger(answer) &&
-          Number(answer) >= 0 &&
-          Number(answer) <= 3),
+        answer === null || (Number.isInteger(answer) && Number(answer) >= 0 && Number(answer) <= 3),
     );
 
   if (
     typeof value.source.content !== "string" ||
     typeof value.source.hash !== "string" ||
-    !(
-      value.selectedModel === null || typeof value.selectedModel === "string"
-    ) ||
+    !(value.selectedModel === null || typeof value.selectedModel === "string") ||
     !isSummary(value.summary) ||
     !Number.isInteger(value.questionCountDraft) ||
     Number(value.questionCountDraft) < 1 ||
@@ -172,6 +116,12 @@ export function parseWorkspace(value: unknown): WorkspaceV1 | null {
 
   const workspace = value as unknown as WorkspaceV1;
   if (
+    workspace.source.hash !== sourceHash(workspace.source.content) &&
+    !(workspace.source.content === "" && workspace.source.hash === "")
+  ) {
+    return null;
+  }
+  if (
     (workspace.quiz === null && workspace.selectedAnswers.length !== 0) ||
     (workspace.quiz !== null &&
       workspace.selectedAnswers.length !== workspace.quiz.questions.length) ||
@@ -183,30 +133,16 @@ export function parseWorkspace(value: unknown): WorkspaceV1 | null {
     return null;
   }
 
-  return workspace;
-}
-
-export function readWorkspace(storage: Storage): WorkspaceReadResult {
-  const storedValue = storage.getItem(WORKSPACE_STORAGE_KEY);
-
-  if (storedValue === null) {
-    return { status: "empty" };
-  }
-
-  try {
-    const workspace = parseWorkspace(JSON.parse(storedValue) as unknown);
-
-    if (workspace !== null) {
-      return { status: "restored", workspace };
+  if (workspace.completion && workspace.quiz) {
+    const expected = calculateScore(workspace.quiz.questions, workspace.selectedAnswers);
+    if (
+      (Object.keys(expected) as (keyof ScoreData)[]).some(
+        (key) => expected[key] !== workspace.completion?.score[key],
+      )
+    ) {
+      return null;
     }
-  } catch {
-    // The invalid record is removed below.
   }
 
-  storage.removeItem(WORKSPACE_STORAGE_KEY);
-  return { status: "invalid" };
-}
-
-export function writeWorkspace(storage: Storage, workspace: WorkspaceV1): void {
-  storage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
+  return workspace;
 }
